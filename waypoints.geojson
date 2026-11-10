@@ -1,0 +1,18 @@
+{
+"type": "FeatureCollection",
+"name": "waypoints",
+"features": [
+{ "type": "Feature", "properties": { "ele": 607.9, "time": "2022-10-18T20:49:21Z", "name": "Flora" }, "geometry": { "type": "Point", "coordinates": [ -65.315103, -26.791611 ] } },
+{ "type": "Feature", "properties": { "ele": 610.7, "time": "2022-10-18T20:51:32Z", "name": "Flora" }, "geometry": { "type": "Point", "coordinates": [ -65.315438, -26.790709 ] } },
+{ "type": "Feature", "properties": { "ele": 619.7, "time": "2022-10-18T20:53:42Z", "name": "Foto" }, "geometry": { "type": "Point", "coordinates": [ -65.316073, -26.790059 ] } },
+{ "type": "Feature", "properties": { "ele": 629.2, "time": "2022-10-18T20:55:05Z", "name": "Foto" }, "geometry": { "type": "Point", "coordinates": [ -65.316511, -26.790041 ] } },
+{ "type": "Feature", "properties": { "ele": 627.4, "time": "2022-10-18T20:59:49Z", "name": "Flora" }, "geometry": { "type": "Point", "coordinates": [ -65.316117, -26.789104 ] } },
+{ "type": "Feature", "properties": { "ele": 635.8, "time": "2022-10-18T21:08:02Z", "name": "Árboles muertos" }, "geometry": { "type": "Point", "coordinates": [ -65.313738, -26.787762 ] } },
+{ "type": "Feature", "properties": { "ele": 612.5, "time": "2022-10-18T21:18:28Z", "name": "Ponte" }, "geometry": { "type": "Point", "coordinates": [ -65.314826, -26.790818 ] } },
+{ "type": "Feature", "properties": { "ele": 616.2, "time": "2022-10-18T21:24:06Z", "name": "Foto" }, "geometry": { "type": "Point", "coordinates": [ -65.314868, -26.791409 ] } },
+{ "type": "Feature", "properties": { "ele": 608.7, "time": "2022-10-18T21:25:39Z", "name": "Foto" }, "geometry": { "type": "Point", "coordinates": [ -65.31505, -26.79149 ] } },
+{ "type": "Feature", "properties": { "ele": 598.7, "time": "2022-10-18T21:29:34Z", "name": "Estanque" }, "geometry": { "type": "Point", "coordinates": [ -65.315177, -26.791931 ] } },
+{ "type": "Feature", "properties": { "ele": 597.4, "time": "2022-10-18T21:38:04Z", "name": "Foto" }, "geometry": { "type": "Point", "coordinates": [ -65.31519, -26.79192 ] } },
+{ "type": "Feature", "properties": { "ele": 594.7, "time": "2022-10-18T21:50:27Z", "name": "Porta" }, "geometry": { "type": "Point", "coordinates": [ -65.314488, -26.793967 ] } }
+]
+}

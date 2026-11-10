@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yungas - Horco Molle (Colaborativo)</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <!-- Configuración PWA (Manifiesto dinámico) -->
+    <link rel="manifest" href="data:application/manifest+json;charset=utf-8,%7B%22name%22%3A%22Red%20de%20Rescate%20Horco%20Molle%22%2C%22short_name%22%3A%22Rescate%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23ffffff%22%2C%22theme_color%22%3A%22%232e7d32%22%7D">
+    <meta name="theme-color" content="#2e7d32">
+
+    <style>
+        body, html { margin: 0; padding: 0; height: 100%; font-family: sans-serif; }
+        #map { width: 100%; height: 100vh; z-index: 1; }
+        
+        .top-bar {
+            position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+            z-index: 1000; background: white; padding: 8px 16px; border-radius: 20px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3); font-size: 14px; font-weight: bold;
+        }
+        .online { color: #2e7d32; }
+        .offline { color: #c62828; }
+
+        .info-btn {
+            position: absolute; top: 10px; left: 15px; z-index: 1000;
+            background: #c62828; color: white; border: none; border-radius: 20px;
+            padding: 8px 14px; font-size: 14px; font-weight: bold; cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        }
+        .instagram-float {
+            position: absolute; bottom: 25px; left: 15px; z-index: 1000;
+            background: #e1306c; color: white; border: none; border-radius: 50px;
+            padding: 10px 16px; font-size: 13px; font-weight: bold; cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3); text-decoration: none; display: flex; align-items: center; gap: 6px;
+        }
+        .instagram-float:hover { background: #c13584; color: white; }
+
+        .panico-btn {
+            position: absolute; top: 10px; right: 15px; z-index: 1000;
+            background: #d32f2f; color: white; border: none; border-radius: 50%;
+            width: 45px; height: 45px; font-size: 12px; font-weight: bold; cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center;
+            border: 2px solid white;
+        }
+        .panico-btn:active { transform: scale(0.95); }
+
+        .eventos-btn {
+            position: absolute; top: 60px; left: 15px; z-index: 1000;
+            background: #1976d2; color: white; border: none; border-radius: 20px;
+            padding: 8px 14px; font-size: 14px; font-weight: bold; cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        }
+
+        .fab {
+            position: absolute; bottom: 25px; right: 25px; z-index: 1000;
+            background: #2e7d32; color: white; border: none; border-radius: 50px;
+            padding: 15px 20px; font-size: 16px; font-weight: bold; cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        .ubicacion-btn {
+            position: absolute; bottom: 90px; right: 25px; z-index: 1000;
+            background: #1976d2; color: white; border: none; border-radius: 50px;
+            padding: 12px 16px; font-size: 15px; font-weight: bold; cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        .tracking-btn {
+            position: absolute; bottom: 150px; right: 25px; z-index: 1000;
+            background: #e65100; color: white; border: none; border-radius: 50px;
+            padding: 10px 14px; font-size: 13px; font-weight: bold; cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        .ruta-select-container {
+            position: absolute; bottom: 205px; right: 25px; z-index: 1000;
+        }
+
+        .ruta-select {
+            background: #6a1b9a; color: white; border: none; border-radius: 50px;
+            padding: 12px 16px; font-size: 14px; font-weight: bold; cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3); outline: none;
+        }
+
+        .modal {
+            display: none; position: absolute; bottom: 0; left: 0; width: 100%;
+            background: white; z-index: 2000; border-top-left-radius: 16px; border-top-right-radius: 16px;
+            padding: 20px; box-sizing: border-box; box-shadow: 0 -4px 10px rgba(0,0,0,0.2);
+            max-height: 80vh; overflow-y: auto;
+        }
+        .close-btn { float: right; background: none; border: none; font-size: 18px; cursor: pointer; }
+        
+        .contact-box { background: #f5f5f5; padding: 10px; border-radius: 8px; margin-bottom: 10px; font-size: 14px; }
+        .timer-box { background: #e8f5e9; border: 1px solid #2e7d32; padding: 12px; border-radius: 8px; margin-bottom: 15px; font-size: 14px; }
+        .distance-box { background: #e3f2fd; border: 1px solid #1976d2; padding: 12px; border-radius: 8px; margin-bottom: 15px; font-size: 14px; }
+        .event-card { background: #fffde7; border: 1px solid #fbc02d; padding: 10px; border-radius: 6px; margin-bottom: 8px; cursor: pointer; font-size: 13px; }
+        .event-card:hover { background: #fff9c4; }
+    </style>
+</head>
+<body>
+
+    <!-- Modal de Disclaimer Legal Inicial -->
+    <div id="modal-disclaimer" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:999999; justify-content:center; align-items:center; padding:20px; box-sizing:border-box; font-family:sans-serif;">
+        <div style="background:white; color:#333; padding:25px; border-radius:16px; max-width:400px; width:100%; max-height:85vh; overflow-y:auto; box-shadow:0 10px 25px rgba(0,0,0,0.5);">
+            <h3 style="color:#c62828; margin-top:0;">⚠️ Aviso Legal y de Seguridad</h3>
+            <p style="font-size:13px; line-height:1.5; color:#555;">
+                Esta aplicación es una herramienta de colaboración voluntaria para la Reserva Horco Molle. <b>No reemplaza los servicios oficiales de emergencia (911, Defensa Civil o Guardaparques).</b>
+            </p>
+            <p style="font-size:13px; line-height:1.5; color:#555;">
+                La cobertura de GPS y la transmisión de datos dependen de la señal disponible en el cerro. Los desarrolladores no se responsabilizan por demoras en rescates, fallas de conectividad offline o el uso indebido de la plataforma.
+            </p>
+            <button onclick="aceptarDisclaimer()" style="width:100%; padding:14px; background:#2e7d32; color:white; border:none; border-radius:8px; font-size:15px; font-weight:bold; cursor:pointer; margin-top:10px;">Entendido y Acepto</button>
+        </div>
+    </div>
+
+    <button class="info-btn" onclick="abrirInfo()">🚨 Emergencias e Info</button>
+    <button class="panico-btn" onclick="activarBotonPanico()">🚨 SOS</button>
+    <button class="eventos-btn" onclick="abrirEventos()">📢 Estado del Sendero</button>
+    <div id="top-status" class="top-bar">Cargando estado...</div>
+    <div id="map"></div>
+
+    <div class="ruta-select-container">
+        <select id="selectRuta" class="ruta-select" onchange="cambiarRecorrido(this.value)">
+            <option value="" disabled selected>🗺️ Recorridos Propuestos...</option>
+            <option value="ninguno">❌ Ocultar Recorridos</option>
+            <option value="Recorrido 1">🟢 Recorrido 1</option>
+            <option value="Recorrido 2">🟡 Recorrido 2</option>
+            <option value="Recorrido 3">🔴 Recorrido 3</option>
+        </select>
+    </div>
+
+    <button id="btn-tracking" class="tracking-btn" onclick="toggleTracking()">▶️ Activar Tracking</button>
+    <button class="ubicacion-btn" onclick="mostrarMiUbicacionEnMapa()">📍 Mi Ubicación</button>
+    <button class="fab" onclick="abrirReporte()">+ Reportar</button>
+
+    <!-- Modal de Cuenta Regresiva de Pánico -->
+    <div id="modal-panico-cuenta" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(211,47,47,0.9); z-index:99999; justify-content:center; align-items:center; color:white; font-family:sans-serif; text-align:center; padding:20px; box-sizing:border-box;">
+        <div style="background:white; color:#333; padding:30px; border-radius:16px; max-width:350px; width:100%; box-shadow:0 10px 25px rgba(0,0,0,0.5);">
+            <h2 style="color:#d32f2f; margin-top:0;">🚨 EMERGENCIA SOS</h2>
+            <p style="font-size:15px; color:#555;">Enviando alerta de rescate en:</p>
+            <div id="contador-sos" style="font-size:60px; font-weight:bold; color:#d32f2f; margin:15px 0;">5</div>
+            <p style="font-size:13px; color:#666;">Los guardaparques recibirán tu ubicación exacta.</p>
+            
+            <button onclick="cancelarPanico()" style="width:100%; padding:14px; background:#757575; color:white; border:none; border-radius:8px; font-size:16px; font-weight:bold; cursor:pointer; margin-bottom:10px;">❌ CANCELAR (Fue sin querer)</button>
+            <button onclick="ejecutarPanicoInmediato()" style="width:100%; padding:10px; background:transparent; color:#d32f2f; border:none; font-size:13px; text-decoration:underline; cursor:pointer;">Enviar ahora mismo</button>
+        </div>
+    </div>
+
+    <div id="modal-reporte" class="modal">
+        <button class="close-btn" onclick="cerrarReporte()">✕</button>
+        <h3>Nuevo Reporte Comunitario</h3>
+        <label>Tipo de incidente:</label>
+        <select id="tipo" style="width:100%; padding:8px; margin: 8px 0 12px 0;">
+            <option value="Asistencia">Necesito asistencia / rescate</option>
+            <option value="Árbol Caído">Árbol caído u obstrucción</option>
+            <option value="Crecida de Arroyo">Crecida de arroyo / agua</option>
+            <option value="Basurero/Daño">Basurero roto / Daño estructural</option>
+        </select>
+        <label>Detalle opcional:</label>
+        <textarea id="detalle" rows="2" style="width:100%; padding:8px; margin: 8px 0 12px 0;"></textarea>
+        <button onclick="enviarReporte()" style="width:100%; padding:12px; background:#2e7d32; color:white; border:none; border-radius:4px; font-weight:bold;">Guardar / Enviar Reporte</button>
+    </div>
+
+    <div id="modal-eventos" class="modal">
+        <button class="close-btn" onclick="cerrarEventos()">✕</button>
+        <h3>Estado Colaborativo del Sendero</h3>
+        
+        <div style="background: #f1f8e9; padding: 10px; border-radius: 8px; margin-bottom: 15px; font-size: 13px;">
+            <b>📊 Estadísticas Generales (Hoy):</b><br>
+            - Total reportes activos: <span id="stat-total">0</span><br>
+            - Incidente más frecuente: <span id="stat-frecuente">-</span>
+        </div>
+
+        <div style="margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 6px;">
+            <button onclick="mostrarTodosEnMapa()" style="flex: 1; min-width: 45%; padding: 8px; background: #2e7d32; color: white; border: none; border-radius: 4px; font-size: 12px; font-weight: bold; cursor: pointer;">📍 Mostrar Todos en Mapa</button>
+            <button onclick="limpiarMapa()" style="flex: 1; min-width: 45%; padding: 8px; background: #757575; color: white; border: none; border-radius: 4px; font-size: 12px; font-weight: bold; cursor: pointer;">🧹 Limpiar Mapa</button>
+            <button onclick="exportarExcelConFormulas()" style="width: 100%; padding: 10px; background: #0288d1; color: white; border: none; border-radius: 4px; font-size: 12px; font-weight: bold; cursor: pointer;">📥 Descargar Reporte Analítico (.xlsx)</button>
+        </div>
+
+        <h4>Listado de Alertas de Hoy</h4>
+        <div id="lista-eventos-container">
+            <i style="color: #666;">Cargando eventos...</i>
+        </div>
+    </div>
+
+    <div id="modal-info" class="modal">
+        <button class="close-btn" onclick="cerrarInfo()">✕</button>
+        <h3>Información y Urgencias</h3>
+        
+        <div style="background: #e8f5e9; color: #2e7d32; padding: 10px; border-radius: 8px; margin-bottom: 15px; font-size: 13px; font-weight: bold; text-align: center;">
+            🟢 Modo offline activo: El GPS de tu celular sigue funcionando sin señal.
+        </div>
+
+        <div id="panel-distancias" class="distance-box">
+            <b>Distancia a las salidas cercanas:</b>
+            <div id="lista-distancias" style="margin-top: 5px;">Calculando ubicación GPS...</div>
+        </div>
+
+        <div id="panel-timer" class="timer-box">
+            <b>Estado del Recorrido:</b> <span id="estado-ingreso">No iniciado</span><br>
+            <div id="info-tiempo" style="margin-top: 5px;"></div>
+            <div id="acciones-recorrido" style="margin-top: 10px;"></div>
+        </div>
+
+        <div style="background: #fff3e0; padding: 10px; border-radius: 8px; margin-bottom: 15px; font-size: 14px;">
+            <b>Horario habilitado del sendero:</b> 09:00 a 19:00 hs.<br>
+            <b>Atardecer estimado hoy:</b> <span id="hora-ocaso">Calculando...</span>
+        </div>
+
+        <h4>Números de Emergencia</h4>
+        <div class="contact-box">
+            - Policía: <b>911</b><br>
+            - Siprosa (Emergencias médicas): <b>107</b><br>
+            - Defensa Civil / Bomberos Voluntarios Yerba Buena: <b>100</b>
+        </div>
+
+        <h4>Contacto Jardín Botánico</h4>
+        <div class="contact-box">
+            - Celular: <b>381-4250936</b><br>
+            - WhatsApp: <a href="https://wa.me/5493815298633" target="_blank">381-5298633</a>
+        </div>
+
+        <h4>Contacto del Proyecto</h4>
+        <div class="contact-box">
+            - Mail: <b>proyectoyungastuc@gmail.com</b><br>
+            
+        </div>
+        
+        
+
+        <div style="background: #e1f5fe; padding: 10px; border-radius: 8px; font-size: 13px; text-align: center; margin-top: 15px;">
+            📸 Seguinos en Instagram: <br>
+            <a href="https://www.instagram.com/proyectoyungastuc/" target="_blank" style="font-weight: bold; color: #0288d1; text-decoration: none;" onclick="registrarAccionLocal('click_instagram')">@proyectoyungastuc/a>
+        </div>
+    </div>
+
+    <div id="loadingOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:9999; justify-content:center; align-items:center; color:white; font-family:sans-serif; font-size:18px; text-align:center;">
+        <div style="background:#222; padding:20px; border-radius:8px; box-shadow:0 4px 10px rgba(0,0,0,0.3);">
+            <p style="margin:0 0 10px 0;">🛰️ Obteniendo ubicación GPS (antena / satélite)...</p>
+            <p style="margin:0; font-size:14px; color:#aaa;">Procesando evento...</p>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // 🚀 REGISTRO DEL SERVICE WORKER EXTERNO (PWA Offline Real)
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js')
+                .then(() => console.log("Service Worker registrado correctamente."))
+                .catch((err) => console.warn("Error al registrar Service Worker:", err));
+        }
+
+        // Validación inicial del Disclaimer al cargar
+        window.addEventListener('DOMContentLoaded', () => {
+            const leido = localStorage.getItem('disclaimer_aceptado');
+            if (!leido) {
+                document.getElementById('modal-disclaimer').style.display = 'flex';
+            }
+        });
+
+        function aceptarDisclaimer() {
+            localStorage.setItem('disclaimer_aceptado', 'true');
+            document.getElementById('modal-disclaimer').style.display = 'none';
+        }
+
+        const map = L.map('map').setView([-26.7842, -65.3151], 14);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        let marcadoresTemporalesGroup = L.layerGroup().addTo(map);
+        let marcadorUsuario = null;
+        let precisionCirculo = null;
+        let capaRutaActual = L.layerGroup().addTo(map);
+        let estaSincronizando = false;
+        let watchId = null;
+        let reportesPendientesMemoria = [];
+
+        let miHashUsuario = localStorage.getItem('usuario_hash_sesion');
+        const urlParamsGlobal = new URLSearchParams(window.location.search);
+        const tokenQrUrl = urlParamsGlobal.get('token');
+
+        if (tokenQrUrl) {
+            miHashUsuario = 'qr_' + tokenQrUrl;
+            localStorage.setItem('usuario_hash_sesion', miHashUsuario);
+        } else if (!miHashUsuario) {
+            miHashUsuario = 'user_' + Math.random().toString(36).substring(2, 8) + Date.now().toString(36);
+            localStorage.setItem('usuario_hash_sesion', miHashUsuario);
+        }
+
+        
+// 📊 SISTEMA DE ANALÍTICA POR LOTE (BATCH SYNC)
+let accionesSesion = [];
+
+function registrarAccionLocal(accion) {
+    // Solo se acumula en la memoria RAM del celular, NO se conecta a internet aquí
+    accionesSesion.push({
+        accion: accion,
+        tiempo: new Date().toISOString()
+    });
+}
+
+// Este es el único momento en que se envían los datos recopilados
+window.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden' && accionesSesion.length > 0) {
+        enviarLoteAnalitica();
+    }
+});
+
+function enviarLoteAnalitica() {
+    const URL_SCRIPT_ANALITICA = "https://script.google.com/macros/s/AKfycbxq9Pgfb_IkkZ004hUcQKZujZbA3B2giQbnWyKBRb7QMmpDogvf3caWklJmU4oBbmF4/exec";
+    if (!URL_SCRIPT_ANALITICA || URL_SCRIPT_ANALITICA.includes("TU_NUEVA_URL")) return;
+
+    const payload = JSON.stringify({
+        usuarioHash: miHashUsuario,
+        sesionAcciones: accionesSesion,
+        fechaCierre: new Date().toISOString()
+    });
+
+    // Envío en segundo plano al salir o minimizar
+    if (navigator.sendBeacon) {
+        navigator.sendBeacon(URL_SCRIPT_ANALITICA, payload);
+    } else {
+        fetch(URL_SCRIPT_ANALITICA, { 
+            method: 'POST', 
+            body: payload, 
+            keepalive: true 
+        }).catch(() => {});
+    }
+
+    // Vaciamos el array para evitar duplicados
+    accionesSesion = [];
+}
+
+        const puntosInteres = [
+            { nombre: 'Escuela de Agricultura / Salida', lat: -26.779395, lon: -65.324284 },
+            { nombre: 'Reserva de Horco Molle', lat: -26.793315, lon: -65.315109 },
+            { nombre: 'Jardín Botánico / Salida', lat: -26.793139, lon: -65.315024 },
+            { nombre: 'Merendero', lat: -26.790032, lon: -65.315681 },
+            { nombre: 'Lago Artificial', lat: -26.791558, lon: -65.315081 },
+            { nombre: 'El gomero y salida', lat: -26.800721, lon: -65.316089 },
+            { nombre: 'Sendero Gomero', lat: -26.796516, lon: -65.315209 },
+            { nombre: 'Finca de limones', lat: -26.790122, lon: -65.312861 },
+            { nombre: 'Salida por Finca de limones', lat: -26.793355, lon: -65.314246 }
+        ];
+
+        puntosInteres.forEach(p => {
+            L.marker([p.lat, p.lon]).addTo(map).bindPopup(`<b>${p.nombre}</b>`);
+        });
+
+        function toggleTracking() {
+            const btn = document.getElementById('btn-tracking');
+            if (watchId === null) {
+                if (!navigator.geolocation) {
+                    alert("Tu navegador no soporta geolocalización.");
+                    return;
+                }
+                registrarAccionLocal('activar_tracking');
+                btn.textContent = "⏹️ Detener Tracking";
+                btn.style.background = "#c62828";
+                
+                watchId = navigator.geolocation.watchPosition(
+                    (position) => {
+                        const lat = position.coords.latitude;
+                        const lon = position.coords.longitude;
+                        const accuracy = position.coords.accuracy;
+
+                        if (marcadorUsuario) {
+                            marcadorUsuario.setLatLng([lat, lon]);
+                            precisionCirculo.setLatLng([lat, lon]);
+                            precisionCirculo.setRadius(accuracy);
+                        } else {
+                            marcadorUsuario = L.marker([lat, lon], {
+                                icon: L.divIcon({
+                                    className: 'custom-user-icon',
+                                    html: '<div style="background:#1976d2; width:16px; height:16px; border-radius:50%; border:3px solid white; box-shadow:0 0 8px rgba(0,0,0,0.5);"></div>',
+                                    iconSize: [22, 22]
+                                })
+                            }).addTo(map).bindPopup("📍 Tu posición en vivo");
+
+                            precisionCirculo = L.circle([lat, lon], {
+                                radius: accuracy,
+                                color: '#1976d2',
+                                fillColor: '#1976d2',
+                                fillOpacity: 0.15,
+                                weight: 1
+                            }).addTo(map);
+                        }
+                        map.setView([lat, lon], map.getZoom());
+                    },
+                    (error) => { console.warn("Error en tracking: " + error.message); },
+                    { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+                );
+                alert("Modo tracking activado.");
+            } else {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+                btn.textContent = "▶️ Activar Tracking";
+                btn.style.background = "#e65100";
+                alert("Modo tracking detenido. GPS apagado para ahorrar batería.");
+            }
+        }
+
+        function cambiarRecorrido(tipoRuta) {
+            if (tipoRuta === "ninguno") {
+                capaRutaActual.clearLayers();
+                document.getElementById('selectRuta').value = "";
+                return;
+            }
+
+            registrarAccionLocal('ver_recorrido_' + tipoRuta.replace(/\s+/g, '_'));
+
+            let archivoGeoJSON = tipoRuta === "Recorrido 1" ? "tracks.geojson" : tipoRuta === "Recorrido 2" ? "tracks_reserva.geojson" : "tracks_R_J_AY.geojson";
+            let colorLinea = tipoRuta === "Recorrido 1" ? "#2e7d32" : tipoRuta === "Recorrido 2" ? "#ffde21" : "#d32f2f";
+            let tituloEtiqueta = "🌿 " + tipoRuta;
+            let colorFondoEtiqueta = colorLinea;
+
+            capaRutaActual.clearLayers();
+
+            fetch(archivoGeoJSON)
+                .then(response => {
+                    if (!response.ok) throw new Error("No se pudo cargar el archivo");
+                    return response.json();
+                })
+                .then(data => {
+                    const geoLayer = L.geoJSON(data, { style: { color: colorLinea, weight: 4, opacity: 0.8 } });
+                    capaRutaActual.addLayer(geoLayer);
+                    const marcadorEtiqueta = L.marker([-26.793139, -65.315024], {
+                        icon: L.divIcon({
+                            className: 'custom-route-label',
+                            html: `<div style="background:${colorFondoEtiqueta}; color:white; padding:8px 14px; border-radius:20px; font-weight:bold; font-size:13px; border:2px solid white; box-shadow:0 2px 6px rgba(0,0,0,0.4); display:inline-block; white-space:nowrap;">${tituloEtiqueta}</div>`,
+                            iconAnchor: [90, 20]
+                        })
+                    }).bindPopup(`<b>${tituloEtiqueta}</b>`);
+                    capaRutaActual.addLayer(marcadorEtiqueta);
+                })
+                .catch(err => {
+                    alert("No se encontró el archivo '" + archivoGeoJSON + "'.");
+                    document.getElementById('selectRuta').value = "";
+                });
+        }
+
+        function mostrarMiUbicacionEnMapa() {
+            if (!navigator.geolocation) { alert("Tu navegador no soporta geolocalización."); return; }
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const lat = position.coords.latitude;
+                    const lon = position.coords.longitude;
+                    const accuracy = position.coords.accuracy;
+                    if (marcadorUsuario) {
+                        marcadorUsuario.setLatLng([lat, lon]);
+                        precisionCirculo.setLatLng([lat, lon]);
+                        precisionCirculo.setRadius(accuracy);
+                    } else {
+                        marcadorUsuario = L.marker([lat, lon]).addTo(map).bindPopup("📍 Estás aquí");
+                        precisionCirculo = L.circle([lat, lon], { radius: accuracy, color: '#1976d2', fillOpacity: 0.15 }).addTo(map);
+                    }
+                    map.setView([lat, lon], 16);
+                },
+                (error) => { alert("No se pudo obtener la ubicación actual."); },
+                { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+            );
+        }
+
+        function calcularDistancia(lat1, lon1, lat2, lon2) {
+            const R = 6371;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+            return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+        }
+
+        function actualizarDistanciasGPS() {
+            const contenedor = document.getElementById('lista-distancias');
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const distancias = puntosInteres.map(p => ({ nombre: p.nombre, dist: calcularDistancia(position.coords.latitude, position.coords.longitude, p.lat, p.lon) })).sort((a, b) => a.dist - b.dist);
+                        let html = "<ul style='padding-left: 15px; margin: 5px 0 0 0;'>";
+                        distancias.slice(0, 3).forEach(item => {
+                            const textoDist = item.dist < 1 ? Math.round(item.dist * 1000) + " mts" : item.dist.toFixed(2) + " km";
+                            html += `<li><b>${item.nombre}</b>: a aprox. ${textoDist}</li>`;
+                        });
+                        contenedor.innerHTML = html + "</ul>";
+                    },
+                    (error) => { contenedor.innerHTML = "<span style='color: #c62828;'>Sin señal GPS.</span>"; },
+                    { enableHighAccuracy: false, timeout: 5000, maximumAge: 20000 }
+                );
+            }
+        }
+
+        function calcularOcaso() {
+            const mes = new Date().getMonth();
+            let ocaso = "19:00 hs";
+            if ([11, 0, 1].includes(mes)) ocaso = "20:00 hs";
+            else if ([5, 6, 7].includes(mes)) ocaso = "18:30 hs";
+            document.getElementById('hora-ocaso').textContent = ocaso;
+        }
+        calcularOcaso();
+
+        function verificarIngreso() {
+            const ingresoTime = localStorage.getItem('ingreso_timestamp');
+            const estadoDiv = document.getElementById('estado-ingreso');
+            const infoTiempoDiv = document.getElementById('info-tiempo');
+            const accionesDiv = document.getElementById('acciones-recorrido');
+
+            if (ingresoTime) {
+                estadoDiv.innerHTML = "<span style='color:green; font-weight:bold;'>En recorrido activo</span>";
+                infoTiempoDiv.innerHTML = "Recorrido en marcha.";
+                accionesDiv.innerHTML = `<button onclick="marcarSalida()" style="width:100%; padding:10px; background:#c62828; color:white; border:none; border-radius:4px; font-weight:bold;">Marcar Salida / Finalizar</button>`;
+            } else {
+                estadoDiv.textContent = "No iniciado";
+                infoTiempoDiv.innerHTML = "Escanea el código QR de ingreso.";
+                accionesDiv.innerHTML = "";
+            }
+        }
+
+        
+
+        function marcarSalida() {
+            if (confirm("¿Finalizar recorrido?")) {
+                localStorage.removeItem('ingreso_timestamp');
+                registrarAccionLocal('marcar_salida');
+                alert("Salida registrada.");
+                verificarIngreso();
+            }
+        }
+
+        function obtenerReportesLocales() {
+            return JSON.parse(localStorage.getItem('reportes_guardados') || '[]');
+        }
+
+        function enfocarEnMapa(lat, lon, tipo, detalle) {
+            cerrarEventos();
+            map.setView([lat, lon], 17);
+            marcadoresTemporalesGroup.clearLayers();
+            L.marker([lat, lon]).addTo(marcadoresTemporalesGroup).bindPopup(`<b>${tipo}</b><br>${detalle}`).openPopup();
+        }
+
+        function mostrarTodosEnMapa() {
+            cerrarEventos();
+            const reportes = obtenerReportesLocales();
+            marcadoresTemporalesGroup.clearLayers();
+            if (reportes.length === 0) { alert("No hay reportes."); return; }
+            const bounds = [];
+            reportes.forEach(r => {
+                L.marker([r.latitud, r.longitud]).addTo(marcadoresTemporalesGroup).bindPopup(`<b>${r.tipo}</b>`);
+                bounds.push([r.latitud, r.longitud]);
+            });
+            map.fitBounds(bounds, { padding: [50, 50] });
+        }
+
+        function limpiarMapa() {
+            marcadoresTemporalesGroup.clearLayers();
+            map.setView([-26.7842, -65.3151], 14);
+        }
+
+        function exportarExcelConFormulas() {
+            const spreadsheetId = "1CoS_B3Gw7zXSAGGUXPpVgCQQvDv5uecyfNkdYRh-an8";
+            const urlEnLinea = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`;
+            window.open(urlEnLinea, '_blank');
+        }
+
+        window.onload = function() {
+          registrarAccionLocal('apertura_mapa_principal');
+
+          const urlParams = new URLSearchParams(window.location.search);
+          if (urlParams.get('qr') === 'ingreso' && !localStorage.getItem('ingreso_timestamp')) {
+           localStorage.setItem('ingreso_timestamp', Date.now());
+           registrarAccionLocal('qr_ingreso_real');
+            }
+          verificarIngreso();
+          sincronizarReportesPendientes();
+        };
+
+        const statusDiv = document.getElementById('top-status');
+        function actualizarRed() {
+            if (navigator.onLine) {
+                statusDiv.textContent = "● En línea";
+                statusDiv.className = "top-bar online";
+                sincronizarReportesPendientes();
+            } else {
+                statusDiv.textContent = "○ Sin señal (Offline)";
+                statusDiv.className = "top-bar offline";
+            }
+        }
+        window.addEventListener('online', actualizarRed);
+        window.addEventListener('offline', actualizarRed);
+        actualizarRed();
+
+        function abrirReporte() { 
+            registrarAccionLocal('abrir_modal_reporte');
+            document.getElementById('modal-reporte').style.display = 'block'; 
+        }
+        function cerrarReporte() { document.getElementById('modal-reporte').style.display = 'none'; }
+        
+        // 🔄 LECTURA ANTICORRS MEDIANTE JSONP (Inyección de Script)
+        function abrirEventos() { 
+            registrarAccionLocal('ver_estado_sendero');
+            document.getElementById('modal-eventos').style.display = 'block'; 
+            const contenedor = document.getElementById('lista-eventos-container');
+            contenedor.innerHTML = "<i>Cargando eventos desde la nube...</i>";
+
+            if (!navigator.onLine) {
+                renderizarListaEventos(obtenerReportesLocales());
+                return;
+            }
+
+            // Definimos una función global temporal para recibir los datos de Google Sheets sin CORS
+            window.callbackEventosGoogle = function(data) {
+                renderizarListaEventos(Array.isArray(data) ? data : []);
+                limpiarScriptJsonp();
+            };
+
+            const urlBase = "https://script.google.com/macros/s/AKfycbxYrDxyoDBU7LiuNgQXO-wEkJrSwtp-96hyQiG8-5n5gW30pksY7MMJbVyouxnPgSw3oA/exec";
+            const scriptTag = document.createElement('script');
+            scriptTag.id = "jsonp-script-lector";
+            scriptTag.src = `${urlBase}?accion=leer&callback=callbackEventosGoogle&_=${Date.now()}`;
+            
+            scriptTag.onerror = function() {
+                console.warn("Fallo el JSONP, usando datos locales.");
+                renderizarListaEventos(obtenerReportesLocales());
+                limpiarScriptJsonp();
+            };
+
+            document.body.appendChild(scriptTag);
+
+            // Timeout de seguridad de 10 segundos
+            setTimeout(() => {
+                if (document.getElementById('jsonp-script-lector')) {
+                    console.warn("Timeout de lectura en nube, usando locales.");
+                    renderizarListaEventos(obtenerReportesLocales());
+                    limpiarScriptJsonp();
+                }
+            }, 10000);
+        }
+
+        function limpiarScriptJsonp() {
+            const el = document.getElementById('jsonp-script-lector');
+            if (el) el.remove();
+        }
+
+        function renderizarListaEventos(reportesNube) {
+            const contenedor = document.getElementById('lista-eventos-container');
+            contenedor.innerHTML = "";
+
+            const ahora = new Date();
+            const hoyStr = `${String(ahora.getDate()).padStart(2, '0')}/${String(ahora.getMonth() + 1).padStart(2, '0')}/${ahora.getFullYear()}`;
+
+            const pendientesFormateados = reportesPendientesMemoria.map(p => ({ ...p, esMio: true, estado: 'Pendiente' }));
+            const reportesLocalesMios = obtenerReportesLocales();
+
+            const nubeFormateados = reportesNube.map(r => ({
+                ...r,
+                esMio: (r.usuarioHash && r.usuarioHash === miHashUsuario) || reportesLocalesMios.some(local => local.id === r.id),
+                estado: 'Enviado'
+            }));
+
+            const mapaUnico = new Map();
+            [...pendientesFormateados, ...nubeFormateados].forEach(item => {
+                const clave = item.id ? item.id : `${item.fecha}_${item.tipo}`;
+                if (!mapaUnico.has(clave)) {
+                    mapaUnico.set(clave, item);
+                }
+            });
+            const todos = Array.from(mapaUnico.values());
+
+            const reportesHoy = todos.filter(r => {
+                if (!r.fecha) return false;
+                let f = String(r.fecha).trim();
+                if (f.includes('-') && f.includes('T')) {
+                    const p = f.split('T')[0].split('-');
+                    f = `${p[2]}/${p[1]}/${p[0]}`;
+                }
+                return f.substring(0, 10) === hoyStr;
+            });
+
+            document.getElementById('stat-total').textContent = reportesHoy.length;
+            if (reportesHoy.length === 0) {
+                contenedor.innerHTML = "<i>No hay reportes hoy.</i>";
+                document.getElementById('stat-frecuente').textContent = "Ninguno";
+                return;
+            }
+
+            let conteo = {};
+            reportesHoy.forEach(r => conteo[r.tipo] = (conteo[r.tipo] || 0) + 1);
+            document.getElementById('stat-frecuente').textContent = Object.keys(conteo).reduce((a, b) => conteo[a] > conteo[b] ? a : b);
+
+            reportesHoy.forEach((r) => {
+                let horaLegible = "Reciente";
+                try {
+                    const partes = String(r.fecha).split(' ');
+                    if (partes.length > 1) {
+                        horaLegible = partes[1].substring(0, 5);
+                    } else {
+                        horaLegible = new Date(r.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    }
+                } catch(e) {}
+
+                const esMio = r.esMio === true;
+                let estilo = "";
+                let etiqueta = "";
+
+                if (esMio) {
+                    if (r.estado === 'Pendiente') {
+                        estilo = "background: #fff3e0; border: 2px dashed #f57c00;";
+                        etiqueta = "(Mi reporte: Pendiente ⏳)";
+                    } else {
+                        estilo = "background: #e8f5e9; border: 2px solid #2e7d32;";
+                        etiqueta = "(Mi reporte: Procesado ✅)";
+                    }
+                } else {
+                    const hashCorto = r.usuarioHash ? String(r.usuarioHash).substring(0, 6) : 'Anónimo';
+                    estilo = "background: #e3f2fd; border: 1px solid #1976d2;";
+                    etiqueta = `(Usuario [${hashCorto}] 👤)`;
+                }
+
+                const card = document.createElement('div');
+                card.className = 'event-card';
+                card.style.cssText = estilo + " padding: 10px; border-radius: 6px; margin-bottom: 8px; cursor: pointer; font-size: 13px;";
+                card.onclick = () => enfocarEnMapa(r.latitud, r.longitud, r.tipo, r.detalle);
+
+                const bTipo = document.createElement('b');
+                bTipo.textContent = `⚠️ ${r.tipo} `;
+                
+                const bEtiqueta = document.createElement('b');
+                bEtiqueta.style.fontSize = "11px";
+                bEtiqueta.textContent = etiqueta;
+
+                const spanDetalle = document.createElement('span');
+                spanDetalle.textContent = r.detalle || 'Sin detalles';
+
+                const br1 = document.createElement('br');
+                const br2 = document.createElement('br');
+
+                const small = document.createElement('small');
+                small.style.color = "#555";
+                small.textContent = `🕒 Hora: ${horaLegible} | Lat/Lon: ${Number(r.latitud).toFixed(4)}, ${Number(r.longitud).toFixed(4)}`;
+
+                card.appendChild(bTipo);
+                card.appendChild(bEtiqueta);
+                card.appendChild(br1);
+                card.appendChild(spanDetalle);
+                card.appendChild(br2);
+                card.appendChild(small);
+
+                contenedor.appendChild(card);
+            });
+        }
+
+        function cerrarEventos() { document.getElementById('modal-eventos').style.display = 'none'; }
+        function abrirInfo() { 
+            registrarAccionLocal('abrir_emergencias_info');
+            verificarIngreso(); 
+            actualizarDistanciasGPS(); 
+            document.getElementById('modal-info').style.display = 'block'; 
+        }
+        function cerrarInfo() { document.getElementById('modal-info').style.display = 'none'; }
+
+        function enviarReporte() {
+            document.getElementById('loadingOverlay').style.display = 'flex';
+            const tipo = document.getElementById('tipo').value;
+            const detalle = document.getElementById('detalle').value;
+            const fecha = new Date().toISOString();
+
+            registrarAccionLocal('enviar_reporte_' + tipo.toLowerCase().replace(/\s+/g, '_'));
+
+            if (!navigator.geolocation) {
+                document.getElementById('loadingOverlay').style.display = 'none';
+                alert("Geolocalización no soportada.");
+                return;
+            }
+
+            let gpsAtascado = setTimeout(() => {
+                document.getElementById('loadingOverlay').style.display = 'none';
+                if (confirm("El GPS está tardando demasiado sin señal. ¿Enviar usando la posición actual del mapa?")) {
+                    const centro = map.getCenter();
+                    procesarEnvioReporte(tipo, detalle, fecha, centro.lat, centro.lng);
+                }
+            }, 8000);
+
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    clearTimeout(gpsAtascado);
+                    procesarEnvioReporte(tipo, detalle, fecha, position.coords.latitude, position.coords.longitude);
+                },
+                (error) => {
+                    clearTimeout(gpsAtascado);
+                    document.getElementById('loadingOverlay').style.display = 'none';
+                    if (confirm("No se pudo obtener el GPS preciso. ¿Enviar usando la posición actual del mapa?")) {
+                        const centro = map.getCenter();
+                        procesarEnvioReporte(tipo, detalle, fecha, centro.lat, centro.lng);
+                    }
+                },
+                { enableHighAccuracy: true, timeout: 7000, maximumAge: 0 }
+            );
+        }
+
+        function procesarEnvioReporte(tipo, detalle, fecha, lat, lon) {
+            const nuevoReporte = {
+                id: 'rep_' + Date.now(),
+                tipo,
+                detalle: detalle || "",
+                latitud: Number(lat).toFixed(6),
+                longitud: Number(lon).toFixed(6),
+                fecha,
+                usuarioHash: miHashUsuario,
+                estado: navigator.onLine ? 'Enviado' : 'Pendiente'
+            };
+
+            if (navigator.onLine) {
+                enviarReporteAServidor(nuevoReporte, () => {
+                    document.getElementById('loadingOverlay').style.display = 'none';
+                    alert("¡Reporte enviado con éxito!");
+                    cerrarReporte();
+                }, () => {
+                    reportesPendientesMemoria.push(nuevoReporte);
+                    document.getElementById('loadingOverlay').style.display = 'none';
+                    cerrarReporte();
+                });
+            } else {
+                reportesPendientesMemoria.push(nuevoReporte);
+                document.getElementById('loadingOverlay').style.display = 'none';
+                alert("Sin señal: Guardado temporalmente en RAM. Se enviará al recuperar conexión.");
+                cerrarReporte();
+            }
+        }
+
+        function enviarReporteAServidor(reporte, onSuccess, onError) {
+            const urlScript = "https://script.google.com/macros/s/AKfycbxYrDxyoDBU7LiuNgQXO-wEkJrSwtp-96hyQiG8-5n5gW30pksY7MMJbVyouxnPgSw3oA/exec" +
+                              `?tipo=${encodeURIComponent(reporte.tipo)}` +
+                              `&detalle=${encodeURIComponent(reporte.detalle)}` +
+                              `&latitud=${reporte.latitud}` +
+                              `&longitud=${reporte.longitud}` +
+                              `&fecha=${encodeURIComponent(reporte.fecha)}` +
+                              `&usuarioHash=${encodeURIComponent(reporte.usuarioHash)}`;
+
+            fetch(urlScript, { method: 'GET', mode: 'no-cors' })
+                .then(() => {
+                    guardarReportePropioLocal(reporte);
+                    setTimeout(() => {
+                        location.reload();
+                    }, 300);
+
+                    if (typeof onSuccess === 'function') onSuccess();
+                })
+                .catch(err => {
+                    if (typeof onError === 'function') onError();
+                });
+        }
+
+        function guardarReportePropioLocal(reporte) {
+            let reportes = JSON.parse(localStorage.getItem('reportes_guardados') || '[]');
+            if (!reportes.some(r => r.id === reporte.id)) {
+                reportes.unshift(reporte);
+                localStorage.setItem('reportes_guardados', JSON.stringify(reportes));
+            }
+        }
+
+        function sincronizarReportesPendientes() {
+            if (!navigator.onLine || estaSincronizando || reportesPendientesMemoria.length === 0) return;
+            estaSincronizando = true;
+            let reporte = reportesPendientesMemoria.shift();
+
+            enviarReporteAServidor(reporte, () => {
+                estaSincronizando = false;
+                if (document.getElementById('modal-eventos').style.display === 'block') {
+                    abrirEventos();
+                }
+
+                if (reportesPendientesMemoria.length > 0) setTimeout(sincronizarReportesPendientes, 1000);
+            }, () => {
+                reportesPendientesMemoria.unshift(reporte);
+                estaSincronizando = false;
+            });
+        }
+
+        let cuentaRegresivaInterval = null;
+        let segundosRestantes = 5;
+
+        function activarBotonPanico() {
+            registrarAccionLocal('activar_sos');
+            segundosRestantes = 10;
+            document.getElementById('contador-sos').textContent = segundosRestantes;
+            document.getElementById('modal-panico-cuenta').style.display = 'flex';
+
+            cuentaRegresivaInterval = setInterval(() => {
+                segundosRestantes--;
+                document.getElementById('contador-sos').textContent = segundosRestantes;
+
+                if (segundosRestantes <= 0) {
+                    clearInterval(cuentaRegresivaInterval);
+                    document.getElementById('modal-panico-cuenta').style.display = 'none';
+                    confirmarYEnviarPanico();
+                }
+            }, 1000);
+        }
+
+        function cancelarPanico() {
+            clearInterval(cuentaRegresivaInterval);
+            document.getElementById('modal-panico-cuenta').style.display = 'none';
+            registrarAccionLocal('cancelar_sos');
+            alert("Alerta SOS cancelada.");
+        }
+
+        function ejecutarPanicoInmediato() {
+            clearInterval(cuentaRegresivaInterval);
+            document.getElementById('modal-panico-cuenta').style.display = 'none';
+            confirmarYEnviarPanico();
+        }
+
+        function confirmarYEnviarPanico() {
+            document.getElementById('loadingOverlay').style.display = 'flex';
+            const fecha = new Date().toISOString();
+
+            if (!navigator.geolocation) {
+                document.getElementById('loadingOverlay').style.display = 'none';
+                alert("No se puede obtener ubicación para el SOS.");
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    procesarEnvioPanico(position.coords.latitude, position.coords.longitude, position.coords.accuracy, fecha);
+                },
+                (error) => {
+                    document.getElementById('loadingOverlay').style.display = 'none';
+                    const centro = map.getCenter();
+                    procesarEnvioPanico(centro.lat, centro.lng, 0, fecha);
+                },
+                { enableHighAccuracy: true, timeout: 4000, maximumAge: 0 }
+            );
+        }
+
+        function procesarEnvioPanico(lat, lon, precision, fecha) {
+            const reporteSos = {
+                id: 'sos_' + Date.now(),
+                tipo: 'SOS - Requiere Rescate Inmediato',
+                detalle: `Alerta de pánico activada. Precisión GPS: ${Math.round(precision)} metros.`,
+                latitud: Number(lat).toFixed(6),
+                longitud: Number(lon).toFixed(6),
+                fecha,
+                usuarioHash: miHashUsuario,
+                estado: navigator.onLine ? 'Enviado' : 'Pendiente'
+            };
+
+            if (navigator.onLine) {
+                enviarReporteAServidor(reporteSos, () => {
+                    document.getElementById('loadingOverlay').style.display = 'none';
+                    lanzarAccionEmergenciaFinal();
+                }, () => {
+                    reportesPendientesMemoria.push(reporteSos);
+                    document.getElementById('loadingOverlay').style.display = 'none';
+                    lanzarAccionEmergenciaFinal();
+                });
+            } else {
+                reportesPendientesMemoria.push(reporteSos);
+                document.getElementById('loadingOverlay').style.display = 'none';
+                lanzarAccionEmergenciaFinal();
+            }
+        }
+
+        function lanzarAccionEmergenciaFinal() {
+            if (confirm("🚨 Alerta SOS procesada. ¿Deseas intentar llamar por teléfono al 911 ahora?")) {
+                window.location.href = "tel:911";
+            } else {
+                alert("Alerta enviada correctamente. Quédate en un lugar seguro.");
+            }
+        }
+    </script>
+    <audio id="audioAlarma" preload="auto">
+        <source src="data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU2LjQwLjEwMQAAAAAAAAAAAAAA//OEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABhAC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u==" type="audio/mp3">
+    </audio>
+    <a href="https://www.instagram.com/proyectoyungastuc/" target="_blank" class="instagram-float" onclick="registrarAccionLocal('click_instagram_flotante')">
+        📸 Instagram
+    </a>
+</body>
+</html>

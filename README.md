@@ -1,5 +1,5 @@
 # Como nació Proyecto Yungas(Origen y propósito)
-Proyecto Yungas es una Progressive Web App (PWA) de carácter experimental, concebida como prototipo de investigación para el trabajo de tesis de la Licenciatura en Gestión Universitaria. Su objetivo es analizar el impacto del software libre en la vinculación territorial y la seguridad preventiva de senderistas en las Yungas tucumanas mediante mapas offline y herramientas comunitarias. El sistema se distribuye estrictamente como una prueba de concepto abierta y gratuita.
+Proyecto Yungas es una Progressive Web App (PWA) de carácter experimental, concebida como prototipo de investigación para el trabajo de tesis de la Licenciatura en Gestión Universitaria. Su objetivo es analizar el impacto del software libre en la vinculación territorial y la seguridad preventiva de senderistas en las Yungas tucumanas mediante mapas offline y herramientas comunitarias. El sistema se distribuye estrictamente como una prueba de concepto abierta y gratuita y fue desarrollada en conjunto con otros senderistas y ciclistas que visitan regularmente la zona.
 # Escala y Desarrollo Técnico (Horco Molle)
 La Reserva Experimental Horco Molle funciona como el campo de pruebas inicial con usuarios reales en entorno de testing. Su arquitectura es escalable para replicarse en otros circuitos de la región (Funiculares, Cuesta del Cielo) y, a futuro, colaborar en zonas de alta complejidad donde la geolocalización es crítica (Ñuñorco, Los Alisos).
 
@@ -26,3 +26,5 @@ Para superar las limitaciones de conectividad en zonas de montaña, el proyecto 
 
 ## 📄 Licencia
 Este proyecto se distribuye bajo los términos de la **MIT License**. Eres libre de usar, clonar, auditar y modificar este software, bajo la condición de que se provee "tal cual es", sin garantía de ningún tipo. Consulta el archivo `LICENSE` para más detalles.
+## 👨‍💻 Autoría y Desarrollo
+Desarrollado de forma independiente por **PyoneroSoft Tucumán** como una iniciativa de tecnología cívica (*Civic Tech*) y software libre para la comunidad de Tucumán.
